@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * An example form and lookup.
+ */
+
+
+/**
+ * Implements hook_menu().
+ */
+function lookup_menu() {
+  $items['lookup'] = array(
+    'title' => 'Look up drawing results',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_lookup_form'),
+    'access callback' => TRUE
+  );
+  $items['lookup/result'] = array(
+    'title' => 'Drawing results',
+    'page callback' => '_lookup_results',
+    'access callback' => TRUE,
+    'access arguments' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Returns our lookup form.
+ *
+ * See lookup_menu()
+ */
+function _lookup_form($form, &$form_state) {
+  $form['intro'] = array(
+    '#markup' => t('<div class="alert alert-info">Please use this form to look up your drawing results.</div><div class="form-inline"><div class="field-group">'),
+  );
+  $form['codes'] = array(
+    '#type' => 'container',
+    '#description' => 'Please enter your codes below. <strong>The final textfield in this example will be used as a uid to query nodes created by that user.</strong>'
+  );
+  $form['codes']['type'] = array(
+    '#title' => t('Your code'),
+    '#type' => 'textfield',
+    '#size' => 3,
+    '#maxlength' => 3,
+    '#required' => TRUE,
+  );
+  $form['codes']['type']['#attributes']['placeholder'] = '123';
+  $form['codes']['code'] = array(
+    '#title' => t('-'),
+    '#type' => 'textfield',
+    '#size' => 5,
+    '#maxlength' => 5,
+    '#required' => TRUE,
+  );
+  $form['codes']['code']['#attributes']['placeholder'] = '45678';
+  $form['submit'] = array(
+    '#value' => t('Find results'),
+    '#type' => 'submit',
+  );
+  $form['closing'] = array(
+    '#markup' => t('</div></div><div class="margin-top pad-top">Good luck!</div><style type="text/css">.form-inline .form-group .form-item { display: inline-block; margin-right: 10px;}</style>'),
+  );
+  $form['submit']['#validate'][] = '_lookup_form_validate';
+  return $form;
+}
+
+function _lookup_form_submit($form, &$form_state) {
+  $_SESSION['code'] = $form_state['input']['code'];
+  $_SESSION['codez'] = 'duck';
+  drupal_goto('lookup/result');
+}
+
+/**
+ * Helper function returns markup for a given code.
+ *
+ * @param $code
+ * @return string
+ */
+function _lookup_results() {
+  $code = $_SESSION['code'];
+
+  $return = "<h2>Your Results</h2>";
+
+  // Example query that will work on any drupal install, but can modify to work with any table in database.
+  $result = db_query('SELECT n.title, n.type, n.created FROM {node} n WHERE n.uid = :uid', array(':uid' => $code));
+
+  foreach ($result as $record) {
+    $return .= '<div class="alert alert-success"><strong>Success!</strong> You drew ' . $record->title . '</div>';
+    $return .= '<p class="pad-left">This ' . $record->type . ' was created ' . $record->created . ' seconds after January 1, 1970.</p>';
+    $results = TRUE;
+  }
+
+  if (!$results) {
+    $return .= '<div class="alert alert-warning"><strong>Sorry!</strong> You did not draw this year.</div>';
+  }
+
+  $return .= '<hr/><div class="pad-top description">If you have questions about these results please contact 555-5555.</div>';
+  return $return;
+}
+
+function _lookup_form_validate($form, &$form_state) {
+  $code = $form_state['input']['code'];
+  if (!is_numeric($code) || strpos($code, '.') !== false || $code < 1) {
+    form_set_error('code', t('Code must be a positive integer.'));
+  }
+}
+
+/**
+ * Helper function returns result as json.
+ *
+ * Not used in this example.
+ *
+ * @param $return
+ */
+function _lookup_return_as_json($return) {
+  if (isset($_REQUEST['callback']) && $_REQUEST['callback'] != '') {
+    $callback = check_plain($_REQUEST['callback']);
+    $json_response = drupal_json_encode($return);
+    drupal_add_http_header('Content-Type', 'application/javascript');
+    echo $callback . "(" . $json_response . ");";
+    drupal_exit();
+  } else {
+    drupal_json_output($return);
+  }
+}

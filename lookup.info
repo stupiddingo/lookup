@@ -1,0 +1,4 @@
+name = "Lookup"
+description = "Looks up values from a database table"
+package = Examples
+core = 7.x
